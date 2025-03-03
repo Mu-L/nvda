@@ -8,10 +8,50 @@ When working on this file, consider moving to winAPI.
 """
 
 import threading
-from ctypes import *  # noqa: F403
-from ctypes.wintypes import *  # noqa: F403
+from ctypes import (
+	Structure,
+	byref,
+	c_void_p,
+	windll,
+	WINFUNCTYPE,
+	c_int,
+	c_wchar_p,
+)
+from ctypes.wintypes import (
+	UINT,
+	HINSTANCE,
+	HHOOK,
+	HWND,
+	HMODULE,
+	MSG,
+	LPMSG,
+	WPARAM,
+	LPARAM,
+	DWORD,
+	POINT,
+)
+
 import watchdog
 import winUser
+
+windll.user32.CallNextHookEx.argtypes = (
+	HHOOK,   # hook
+	c_int,  # code
+	WPARAM,
+	LPARAM,
+)
+
+windll.user32.GetMessageW.argtypes = (
+	LPMSG,  # lpMsg
+	HWND,  # hWnd
+	UINT,  # wMsgFilterMin
+	UINT,  # wMsgFilterMax
+)
+
+windll.kernel32.GetModuleHandleW.restype = HMODULE
+windll.kernel32.GetModuleHandleW.argtypes = (
+	c_wchar_p,
+)
 
 # Some Windows constants
 HC_ACTION = 0
@@ -42,13 +82,25 @@ class MSLLHOOKSTRUCT(Structure):  # noqa: F405
 		("dwExtraInfo", DWORD),  # noqa: F405
 	]
 
+LRESULT = c_void_p
+
+HOOKPROC = WINFUNCTYPE(LRESULT, c_int, WPARAM, LPARAM)  # noqa: F405
+
+windll.user32.SetWindowsHookExW.restype = HHOOK
+windll.user32.SetWindowsHookExW.argtypes = (
+	c_int,  # idHook
+	HOOKPROC,  # lpfn
+	HINSTANCE,  # hMod
+	DWORD,  # dwThreadId
+)
+
 
 keyDownCallback = None
 keyUpCallback = None
 mouseCallback = None
 
 
-@WINFUNCTYPE(c_long, c_int, WPARAM, LPARAM)  # noqa: F405
+@HOOKPROC
 def keyboardHook(code, wParam, lParam):
 	if code != HC_ACTION:
 		return windll.user32.CallNextHookEx(0, code, wParam, lParam)  # noqa: F405
@@ -72,7 +124,7 @@ def keyboardHook(code, wParam, lParam):
 	return windll.user32.CallNextHookEx(0, code, wParam, lParam)  # noqa: F405
 
 
-@WINFUNCTYPE(c_long, c_int, WPARAM, LPARAM)  # noqa: F405
+@HOOKPROC
 def mouseHook(code, wParam, lParam):
 	if watchdog.isAttemptingRecovery or code != HC_ACTION:
 		return windll.user32.CallNextHookEx(0, code, wParam, lParam)  # noqa: F405

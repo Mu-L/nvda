@@ -19,6 +19,7 @@ from ctypes import (
 	c_void_p,
 	CFUNCTYPE,
 	c_float,
+	string_at,
 )
 from ctypes.wintypes import (
 	WORD,
@@ -63,17 +64,7 @@ Handlers are called with the same arguments as L{playWaveFile} as keyword argume
 """
 
 
-class WAVEFORMATEX(Structure):
-	_fields_ = [
-		("wFormatTag", WORD),
-		("nChannels", WORD),
-		("nSamplesPerSec", DWORD),
-		("nAvgBytesPerSec", DWORD),
-		("nBlockAlign", WORD),
-		("wBitsPerSample", WORD),
-		("cbSize", WORD),
-	]
-
+from NVDAHelper.localLib import WAVEFORMATEX
 
 WAVE_FORMAT_PCM = 1
 
@@ -357,6 +348,8 @@ class WasapiWavePlayer(garbageHandler.TrackedObject):
 		feedId = c_uint() if onDone else None
 		# Never treat this instance as idle while we're feeding.
 		self._lastActiveTime = None
+		if not isinstance(data, bytes):
+			data = string_at(data, size)
 		try:
 			NVDAHelper.localLib.wasPlay_feed(
 				self._player,
