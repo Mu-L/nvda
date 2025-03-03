@@ -9,8 +9,33 @@ set scriptsDir=%here%
 set venvLocation=%here%\..\.venv
 
 rem Ensure the environment is created and up to date
-py -3.11-64 "%scriptsDir%\ensureVenv.py"
+rem Check for an environment variable telling us the target architecture
+rem If not defined, use the system architecture by getting it from WMI
+rem do this locally so the resultant variable is not exported
+setlocal
+if not defined NVDATargetArch (
+	for /f "tokens=2 delims==-" %%a in (
+		'wmic os get osarchitecture /VALUE'
+	) do (
+		set NVDATargetArch=%%a
+	)
+)
+if %NVDATargetArch%==32 goto makeVenv
+if %NVDATargetArch%==64 goto makeVenv
+rem The target architecture is neither 32- or 64-bit
+echo Target architecture "%NVDATargetArch%" not recognised.
+echo Ensure this script is running on a 32-bit or 64-bit operating system,
+echo and, if set, %%NVDATargetArch%% is either 32 or 64.
+goto :EOF
+
+:makeVenv
+rem Version of Python we're building against
+set NVDAPythonVersion=3.11
+for /f "delims=" %%a in ('py -%NVDAPythonVersion%-%NVDATargetArch% -VV') do set pyVersionInUse=%%a
+echo Using %pyVersionInUse%
+py -%NVDAPythonVersion%-%NVDATargetArch% "%scriptsDir%\ensureVenv.py"
 if ERRORLEVEL 1 goto :EOF
+endlocal
 
 rem Set the necessary environment variables to have Python use this virtual environment.
 rem This should set all the necessary environment variables that the standard .venv\scripts\activate.bat does
